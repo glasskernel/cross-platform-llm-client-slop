@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import '../controllers/settings_controller.dart';
 import '../core/colors.dart';
+import '../core/constants.dart';
 import '../services/inference_service.dart';
 import '../services/device_info_service.dart';
 
@@ -42,6 +44,13 @@ class SettingsView extends GetView<SettingsController> {
                 _buildApiKeyField(context),
                 const SizedBox(height: 12),
                 _buildModelField(context),
+                const SizedBox(height: 20),
+              ],
+
+              // ── NPU Config ──────────────────────
+              if (controller.inferenceMode.value == 'npu') ...[
+                _buildSectionHeader(context, 'NPU / LITERT CONFIG'),
+                _buildNpuConfigCard(context),
                 const SizedBox(height: 20),
               ],
 
@@ -185,6 +194,21 @@ class SettingsView extends GetView<SettingsController> {
               dense: true,
             ),
             RadioListTile<String>(
+              value: 'npu',
+              groupValue: controller.inferenceMode.value,
+              onChanged: (v) => controller.setInferenceMode(v!),
+              title: Text('NPU / LiteRT (On-Device)',
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500)),
+              subtitle: Obx(() => Text(
+                controller.npuModelName.value.isNotEmpty
+                    ? 'Model: ${controller.npuModelName.value}'
+                    : 'No .task model loaded',
+                style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).hintColor),
+              )),
+              activeColor: const Color(0xFF00BCD4),
+              dense: true,
+            ),
+            RadioListTile<String>(
               value: 'cloud',
               groupValue: controller.inferenceMode.value,
               onChanged: (v) => controller.setInferenceMode(v!),
@@ -196,6 +220,71 @@ class SettingsView extends GetView<SettingsController> {
               ),
               activeColor: AppColors.secondary,
               dense: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNpuConfigCard(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('NPU Backend',
+                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Obx(() => SwitchListTile(
+              value: controller.useNpuBackend.value,
+              onChanged: (v) => controller.setUseNpuBackend(v),
+              title: Text(
+                controller.useNpuBackend.value ? 'NPU (hardware accelerator)' : 'GPU (LiteRT fallback)',
+                style: GoogleFonts.inter(fontSize: 13),
+              ),
+              subtitle: Text(
+                controller.useNpuBackend.value
+                    ? 'Requires Pixel 8+ or compatible NPU'
+                    : 'Falls back to GPU if NPU unavailable',
+                style: GoogleFonts.inter(fontSize: 11, color: Theme.of(context).hintColor),
+              ),
+              activeColor: const Color(0xFF00BCD4),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            )),
+            const Divider(),
+            Text('Available .task Models',
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500,
+                    color: Theme.of(context).hintColor)),
+            const SizedBox(height: 8),
+            ...AppConstants.availableNpuModels.map((m) => Obx(() {
+              final isSelected = controller.npuModelName.value == m['name'];
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  color: isSelected ? const Color(0xFF00BCD4) : Theme.of(context).hintColor,
+                  size: 20,
+                ),
+                title: Text(m['name']!, style: GoogleFonts.inter(fontSize: 13)),
+                subtitle: Text('${m['size']} · ${m['description']}',
+                    style: GoogleFonts.inter(fontSize: 11, color: Theme.of(context).hintColor)),
+                onTap: () async {
+                  final dir = await getApplicationDocumentsDirectory();
+                  controller.setNpuModel(
+                    '${dir.path}/models/${m['filename']}',
+                    m['name']!,
+                  );
+                },
+              );
+            })),
+            const SizedBox(height: 4),
+            Text(
+              'Download .task models from the Models tab or manually place them in the app\'s model directory.',
+              style: GoogleFonts.inter(fontSize: 11, color: Theme.of(context).hintColor),
             ),
           ],
         ),

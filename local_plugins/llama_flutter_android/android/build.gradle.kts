@@ -90,6 +90,8 @@ android {
         implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+        // LiteRT LM (MediaPipe) for NPU inference
+        implementation("com.google.ai.edge.litert:litert-lm:0.0.1-alpha04")
         
         testImplementation("org.jetbrains.kotlin:kotlin-test")
         testImplementation("org.mockito:mockito-core:5.0.0")

@@ -10,7 +10,7 @@ class SettingsController extends GetxController {
 
   // Observable settings
   final themeMode = ThemeMode.system.obs;
-  final inferenceMode = 'cloud'.obs; // 'local' or 'cloud'
+  final inferenceMode = 'cloud'.obs; // 'local', 'cloud', or 'npu'
   final cloudProvider = 'kimi'.obs;
   final openaiKey = ''.obs;
   final anthropicKey = ''.obs;
@@ -23,6 +23,11 @@ class SettingsController extends GetxController {
   final temperature = 0.1.obs;
   final maxTokens = 512.obs;
   final contextSize = 2048.obs;
+
+  // NPU settings
+  final npuModelPath = ''.obs;
+  final npuModelName = ''.obs;
+  final useNpuBackend = true.obs; // true = NPU, false = GPU (LiteRT fallback)
 
   // Persistent text controllers for settings fields
   final openaiKeyController = TextEditingController();
@@ -75,6 +80,10 @@ class SettingsController extends GetxController {
     temperature.value = _hive.getSetting(AppConstants.keyTemperature, defaultValue: AppConstants.defaultTemperature) ?? AppConstants.defaultTemperature;
     maxTokens.value = _hive.getSetting(AppConstants.keyMaxTokens, defaultValue: AppConstants.defaultMaxTokens) ?? AppConstants.defaultMaxTokens;
     contextSize.value = _hive.getSetting(AppConstants.keyContextSize, defaultValue: AppConstants.defaultContextSize) ?? AppConstants.defaultContextSize;
+
+    npuModelPath.value = _hive.getSetting(AppConstants.keyNpuModelPath) ?? '';
+    npuModelName.value = _hive.getSetting(AppConstants.keyNpuModelName) ?? '';
+    useNpuBackend.value = _hive.getSetting(AppConstants.keyUseNpuBackend, defaultValue: true) ?? true;
 
     // Sync controllers with loaded values
     openaiKeyController.text = openaiKey.value;
@@ -210,6 +219,18 @@ class SettingsController extends GetxController {
   Future<void> setContextSize(int value) async {
     contextSize.value = value;
     await _hive.setSetting(AppConstants.keyContextSize, value);
+  }
+
+  Future<void> setNpuModel(String path, String name) async {
+    npuModelPath.value = path;
+    npuModelName.value = name;
+    await _hive.setSetting(AppConstants.keyNpuModelPath, path);
+    await _hive.setSetting(AppConstants.keyNpuModelName, name);
+  }
+
+  Future<void> setUseNpuBackend(bool value) async {
+    useNpuBackend.value = value;
+    await _hive.setSetting(AppConstants.keyUseNpuBackend, value);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {

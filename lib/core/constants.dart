@@ -24,6 +24,11 @@ class AppConstants {
   static const String keyMaxTokens = 'max_tokens';
   static const String keyContextSize = 'context_size';
 
+  // NPU Settings Keys
+  static const String keyNpuModelPath = 'npu_model_path';
+  static const String keyNpuModelName = 'npu_model_name';
+  static const String keyUseNpuBackend = 'use_npu_backend';
+
   // Default Model Config
   static const double defaultTemperature = 0.7;
   static const int defaultMaxTokens = 1024;
@@ -120,6 +125,25 @@ class AppConstants {
       'size': '0.8 GB',
       'description': 'Ultra-lightweight text model',
       'template': 'llama3',
+    },
+  ];
+
+  // NPU Models (.task format — LiteRT LM / MediaPipe)
+  // Requires Pixel 8+ or device with compatible NPU (Qualcomm, MediaTek)
+  static const List<Map<String, String>> availableNpuModels = [
+    {
+      'name': 'Gemma 3n E2B (LiteRT NPU)',
+      'filename': 'gemma-3n-E2B-it-int4.task',
+      'url': 'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
+      'size': '2.0 GB',
+      'description': 'Google Gemma 3n — optimized for NPU/GPU via LiteRT',
+    },
+    {
+      'name': 'Gemma 3 1B (LiteRT NPU)',
+      'filename': 'gemma3-1b-it-int4.task',
+      'url': 'https://huggingface.co/google/gemma-3-1b-it-litert-preview/resolve/main/gemma3-1b-it-int4.task',
+      'size': '0.7 GB',
+      'description': 'Gemma 3 1B — ultra-fast on NPU',
     },
   ];
 

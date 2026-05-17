@@ -160,7 +160,7 @@ class ChatController extends GetxController {
           .map((m) => {'role': m.role, 'content': m.content})
           .toList();
 
-      if (inferenceMode == 'local') {
+      if (inferenceMode == 'local' || inferenceMode == 'npu') {
         final inference = Get.find<InferenceService>();
 
         // Local models can't process images
@@ -261,6 +261,8 @@ class ChatController extends GetxController {
     String modelName = '';
     if (inferenceMode == 'local') {
       modelName = _hive.getSetting<String>(AppConstants.keyLocalModelName) ?? '';
+    } else if (inferenceMode == 'npu') {
+      modelName = _hive.getSetting<String>(AppConstants.keyNpuModelName) ?? '';
     } else {
       final provider = _hive.getSetting(AppConstants.keyCloudProvider) ?? 'kimi';
       modelName = _hive.getSetting(provider == 'openai' ? AppConstants.keyOpenaiModel : 

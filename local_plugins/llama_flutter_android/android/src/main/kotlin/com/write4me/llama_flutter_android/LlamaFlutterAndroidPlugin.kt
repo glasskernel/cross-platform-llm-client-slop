@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -17,6 +20,10 @@ class LlamaFlutterAndroidPlugin : FlutterPlugin, LlamaHostApi {
     private val isStopping = AtomicBoolean(false)
     private var currentModelPath: String? = null
 
+    // NPU
+    private var npuEngine: NpuInferenceEngine? = null
+    private var npuTokenChannel: MethodChannel? = null
+
     companion object {
         init {
             System.loadLibrary("llama_jni")
@@ -27,6 +34,12 @@ class LlamaFlutterAndroidPlugin : FlutterPlugin, LlamaHostApi {
         context = binding.applicationContext
         flutterApi = LlamaFlutterApi(binding.binaryMessenger)
         LlamaHostApi.setUp(binding.binaryMessenger, this)
+
+        // NPU method channel
+        npuTokenChannel = MethodChannel(binding.binaryMessenger, "llama_flutter_android/npu")
+        npuTokenChannel!!.setMethodCallHandler { call, result ->
+            handleNpuCall(call, result)
+        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -34,7 +47,85 @@ class LlamaFlutterAndroidPlugin : FlutterPlugin, LlamaHostApi {
         if (isModelLoaded.get()) {
             nativeFreeModel()
         }
+        npuEngine?.dispose()
+        npuEngine = null
+        npuTokenChannel?.setMethodCallHandler(null)
+        npuTokenChannel = null
         LlamaHostApi.setUp(binding.binaryMessenger, null)
+    }
+
+    private fun handleNpuCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "loadNpuModel" -> {
+                val modelPath = call.argument<String>("modelPath") ?: run {
+                    result.error("INVALID_ARG", "modelPath required", null); return
+                }
+                val useNpu = call.argument<Boolean>("useNpu") ?: true
+                val maxTokens = call.argument<Int>("maxTokens") ?: 1024
+                scope.launch {
+                    try {
+                        npuEngine?.dispose()
+                        npuEngine = NpuInferenceEngine(context)
+                        npuEngine!!.load(modelPath, useNpu, maxTokens)
+                        withContext(Dispatchers.Main) { result.success(null) }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            result.error("NPU_LOAD_FAILED", e.message, null)
+                        }
+                    }
+                }
+            }
+            "generateNpu" -> {
+                val prompt = call.argument<String>("prompt") ?: run {
+                    result.error("INVALID_ARG", "prompt required", null); return
+                }
+                val eng = npuEngine ?: run {
+                    result.error("NPU_NOT_LOADED", "NPU model not loaded", null); return
+                }
+                scope.launch {
+                    val buffer = StringBuilder()
+                    var done = false
+                    eng.generate(
+                        prompt = prompt,
+                        onToken = { token ->
+                            buffer.append(token)
+                            scope.launch(Dispatchers.Main) {
+                                npuTokenChannel?.invokeMethod("onNpuToken", token)
+                            }
+                        },
+                        onDone = {
+                            done = true
+                            scope.launch(Dispatchers.Main) {
+                                npuTokenChannel?.invokeMethod("onNpuDone", null)
+                                result.success(buffer.toString())
+                            }
+                        },
+                        onError = { msg ->
+                            scope.launch(Dispatchers.Main) {
+                                result.error("NPU_GENERATE_FAILED", msg, null)
+                            }
+                        },
+                    )
+                }
+            }
+            "stopNpu" -> {
+                npuEngine?.stop()
+                result.success(null)
+            }
+            "resetNpuConversation" -> {
+                npuEngine?.resetConversation()
+                result.success(null)
+            }
+            "disposeNpu" -> {
+                npuEngine?.dispose()
+                npuEngine = null
+                result.success(null)
+            }
+            "isNpuLoaded" -> {
+                result.success(npuEngine?.isLoaded() ?: false)
+            }
+            else -> result.notImplemented()
+        }
     }
 
     override fun loadModel(config: ModelConfig, callback: (Result<Unit>) -> Unit) {
